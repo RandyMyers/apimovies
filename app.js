@@ -17,6 +17,7 @@ console.log('[app.js] Logger and socketService loaded');
 dotenv.config();
 console.log('[app.js] dotenv loaded, NODE_ENV=', process.env.NODE_ENV);
 
+
 // Check if we're in a serverless environment (Vercel, etc.)
 const isServerless = !!(
   process.env.VERCEL ||
@@ -45,7 +46,7 @@ const corsOptions = {
       }
     }
     const allowed = [
-      'https://apimovies-one.vercel.app',
+      'https://moviesapi-peach.vercel.app',
       ...allowedFromEnv,
     ];
     if (allowed.includes(origin)) return callback(null, true);
