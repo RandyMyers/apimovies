@@ -13,29 +13,47 @@ const socketService = require('./services/socketService');
 // Load environment variables
 dotenv.config();
 
+// Check if we're in a serverless environment (Vercel, etc.)
+const isServerless = !!(
+  process.env.VERCEL ||
+  process.env.VERCEL_ENV ||
+  (typeof __dirname !== 'undefined' && __dirname.includes('/var/task'))
+);
+
 // Production: require JWT_SECRET
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   logger.error('Fatal: JWT_SECRET is required in production.');
   process.exit(1);
 }
 
-// CORS: allow list from env (comma-separated), or allow any origin so client/admin can be anywhere
-const corsOrigin = process.env.CORS_ORIGIN || process.env.CORS_ORIGINS;
-const corsOptions = corsOrigin
-  ? {
-      origin: corsOrigin.split(',').map((o) => o.trim()),
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Site-Slug'],
-      credentials: true,
+// CORS: like dealcouponz - allow no origin, localhost in dev, and in production allow list + *.vercel.app
+const corsOriginList = process.env.CORS_ORIGIN || process.env.CORS_ORIGINS;
+const allowedFromEnv = corsOriginList ? corsOriginList.split(',').map((o) => o.trim()) : [];
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (process.env.NODE_ENV !== 'production') {
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        return callback(null, true);
+      }
     }
-  : {
-      origin: true,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Site-Slug'],
-      credentials: true,
-    };
+    const allowed = [
+      'https://apimovies-one.vercel.app',
+      ...allowedFromEnv,
+    ];
+    if (allowed.includes(origin)) return callback(null, true);
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    callback(null, true); // allow other origins so client/admin on any domain work
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Site-Slug', 'Origin', 'X-Requested-With', 'Accept'],
+};
 
 const app = express();
+
+// Trust proxy (for correct IP and protocol behind Vercel/reverse proxy)
+app.set('trust proxy', 1);
 
 // Configure Cloudinary from ./config/cloudinary.js
 const cloudinaryConfig = require('./config/cloudinary');
@@ -148,32 +166,34 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Create HTTP server and attach Socket.IO
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : true,
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  },
-  path: '/socket.io',
-});
-socketService.setIO(io);
+// In serverless (Vercel), do not create HTTP server or Socket.IO - platform handles the server
+if (!isServerless) {
+  const server = http.createServer(app);
+  const io = new Server(server, {
+    cors: {
+      origin: true,
+      methods: ['GET', 'POST'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    },
+    path: '/socket.io',
+  });
+  socketService.setIO(io);
+  io.on('connection', (socket) => {
+    const token = socket.handshake.auth?.token;
+    if (token) socket.join('admin');
+  });
 
-io.on('connection', (socket) => {
-  const token = socket.handshake.auth?.token;
-  if (token) {
-    socket.join('admin');
+  if (process.env.NODE_ENV !== 'test') {
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT}`, { port: PORT, env: process.env.NODE_ENV || 'development' });
+    });
   }
-});
-
-// Start HTTP server (simple non-serverless setup)
-if (process.env.NODE_ENV !== 'test') {
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () => {
-    logger.info(`Server running on port ${PORT}`, { port: PORT, env: process.env.NODE_ENV || 'development' });
+} else {
+  logger.info('Serverless function initialized', {
+    environment: process.env.NODE_ENV || 'production',
+    platform: process.env.VERCEL ? 'Vercel' : 'Unknown',
   });
 }
 
-// Export the app (useful for testing or serverless adapters if needed)
 module.exports = app;
