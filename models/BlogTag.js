@@ -17,9 +17,7 @@ const blogTagSchema = new mongoose.Schema({
   },
 });
 
-// Indexes
-blogTagSchema.index({ slug: 1 }, { unique: true });
-blogTagSchema.index({ name: 1 }, { unique: true });
+// Indexes (slug and name already have unique: true on schema)
 
 module.exports = mongoose.model('BlogTag', blogTagSchema);
 

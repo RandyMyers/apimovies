@@ -119,7 +119,6 @@ blogPostSchema.pre('save', function (next) {
 });
 
 // Indexes
-blogPostSchema.index({ slug: 1 }, { unique: true });
 blogPostSchema.index({ status: 1, publishedAt: -1 });
 blogPostSchema.index({ categoryId: 1 });
 blogPostSchema.index({ tags: 1 });

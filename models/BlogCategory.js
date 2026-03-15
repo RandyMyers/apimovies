@@ -44,9 +44,7 @@ blogCategorySchema.pre('save', function (next) {
   next();
 });
 
-// Indexes
-blogCategorySchema.index({ slug: 1 }, { unique: true });
-blogCategorySchema.index({ name: 1 }, { unique: true });
+// Indexes (slug and name already have unique: true on schema)
 blogCategorySchema.index({ 'translations.language': 1 });
 
 module.exports = mongoose.model('BlogCategory', blogCategorySchema);

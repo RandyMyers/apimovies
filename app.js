@@ -91,10 +91,7 @@ const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/cinehub-so
 console.log('[app.js] MONGO_URL set (masked):', MONGO_URL ? 'yes' : 'no');
 
 mongoose
-  .connect(MONGO_URL, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(MONGO_URL)
   .then(async () => {
     console.log('[app.js] MongoDB connected');
     logger.info('Connected to MongoDB');
