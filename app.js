@@ -19,11 +19,21 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-// CORS: allow list from env (comma-separated) or open in development
+// CORS: allow list from env (comma-separated), or allow any origin so client/admin can be anywhere
 const corsOrigin = process.env.CORS_ORIGIN || process.env.CORS_ORIGINS;
 const corsOptions = corsOrigin
-  ? { origin: corsOrigin.split(',').map((o) => o.trim()) }
-  : { origin: true };
+  ? {
+      origin: corsOrigin.split(',').map((o) => o.trim()),
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Site-Slug'],
+      credentials: true,
+    }
+  : {
+      origin: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Site-Slug'],
+      credentials: true,
+    };
 
 const app = express();
 
@@ -141,7 +151,11 @@ app.use((err, req, res, next) => {
 // Create HTTP server and attach Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : true },
+  cors: {
+    origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : true,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  },
   path: '/socket.io',
 });
 socketService.setIO(io);
